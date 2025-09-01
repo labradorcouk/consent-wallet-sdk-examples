@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consent SDK Demo</title>
+    <script src="https://opendata.energy/consent-sdk.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 40px;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            margin: auto;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        input[type="text"], input[type="email"], select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #token-display {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            word-wrap: break-word;
+            font-family: "Courier New", Courier, monospace;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Consent SDK Demo</h1>
+        
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="Enter your email">
+        </div>
+
+        <div class="form-group">
+            <label for="meterNumber">Meter Number</label>
+            <input type="text" id="meterNumber" placeholder="Enter meter number">
+        </div>
+
+        <div class="form-group">
+            <label for="fuelType">Fuel Type</label>
+            <select id="fuelType">
+                <option value="Elec" selected>Electricity</option>
+                <option value="Gas">Gas</option>
+            </select>
+        </div>
+
+        <button onclick="requestConsent()">Request Consent</button>
+
+        <div id="token-display">
+            Your token will appear here...
+        </div>
+    </div>
+
+    <script>
+        async function getToken() {
+            const url = 'https://api.opendata.energy/oauth/token';
+            const body = new URLSearchParams({
+                'grant_type': 'client_credentials',
+                'client_id': '<YOUR_CLIENT_ID>', // Replace with your client ID
+                'client_secret': '<YOUR_CLIENT_SECRET>' // Replace with your client secret
+            });
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: body
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.access_token;
+            } catch (error) {
+                console.error('Error fetching token:', error);
+                document.getElementById('token-display').textContent = `Error fetching token: ${error.message}`;
+                throw error;
+            }
+        }
+
+
+        async function requestConsent() {
+            const clientToken = await getToken();
+            const email = document.getElementById('email').value;
+            const meterNumber = document.getElementById('meterNumber').value;
+            const fuelType = document.getElementById('fuelType').value;
+            const tokenDisplay = document.getElementById('token-display');
+
+            if (!email || !meterNumber) {
+                tokenDisplay.textContent = 'Please fill in all fields.';
+                return;
+            }
+
+            try {
+                if (typeof ConsentSDK === 'undefined') {
+                    tokenDisplay.textContent = 'Error: ConsentSDK not loaded. Check the browser console for errors.';
+                    return;
+                }
+                
+                const sdk = new ConsentSDK(clientToken);
+                const customerDetails = { email };
+                const meterDetails = { meters: [{ mpxn: meterNumber, fuelType: fuelType }] };
+                const token = await sdk.requestConsent(customerDetails, meterDetails);
+                tokenDisplay.textContent = `Success: ${token}`;
+
+            } catch (error) {
+                console.error('Error requesting consent:', error);
+                
+                // Display both error code and message if available
+                // if (error.code && error.message) {
+                //     tokenDisplay.textContent = `Error Code: ${error.code} - ${error.message}`;
+                // } else {
+                //     tokenDisplay.textContent = `Error: ${error.message || error}`;
+                // }
+                tokenDisplay.textContent = `Error: ${error.code} :: ${error.message}`;
+            }
+        }
+    </script>
+
+</body>
+</html>
